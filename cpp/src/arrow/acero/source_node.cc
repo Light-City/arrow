@@ -190,7 +190,7 @@ struct SourceNode : ExecNode, public TracedNode {
     }
     auto fut = Loop([this, options] {
       std::unique_lock<std::mutex> lock(mutex_);
-      if (stop_requested_) {
+      if (stop_requested_ || plan()->should_early_stop_) {
         return Future<ControlFlow<int>>::MakeFinished(Break(batch_count_));
       }
       lock.unlock();

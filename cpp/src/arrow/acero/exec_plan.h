@@ -116,6 +116,11 @@ class ARROW_ACERO_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan
   std::shared_ptr<const KeyValueMetadata> metadata() const;
 
   std::string ToString() const;
+
+  /// Other nodes can set this to true so topsort can exit early.
+  /// For example: if the inner table of Hashjoin (construction hash table end) is 
+  /// empty in the case of innerjoin, we can let the outer table (detection end) exit early
+  bool should_early_stop_{false};
 };
 
 // Acero can be extended by providing custom implementations of ExecNode.  The methods

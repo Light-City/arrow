@@ -2124,5 +2124,38 @@ TEST(HashJoin, ChainedIntegerHashJoins) {
   }
 }
 
+void CheckRightEmpty(JoinType join_type, bool parallel) {
+  BatchesWithSchema l_batches, r_batches, exp_batches;
+  auto l_schema = schema({field("l_i32", int32()), field("l_str", utf8())});
+  auto r_schema = schema({field("r_str", utf8()), field("r_i32", int32())});
+  auto l_r_schema = schema({field("l_i32", int32()), field("l_str", utf8()),
+                            field("r_str", utf8()), field("r_i32", int32())});
+  int multiplicity = parallel ? 100 : 1;
+  l_batches = GenerateBatchesFromString(
+      l_schema,
+      {R"([[0,"d"], [1,"b"]])", R"([[2,"d"], [3,"a"], [4,"a"]])",
+       R"([[5,"b"], [6,"c"], [7,"e"], [8,"e"]])"},
+      multiplicity);
+  r_batches = GenerateBatchesFromString(r_schema, {R"([])"}, multiplicity);
+  exp_batches = GenerateBatchesFromString(l_r_schema, {R"([])"}, multiplicity);
+  CheckRunOutput(join_type, l_batches, r_batches,
+                 /*left_keys=*/{{"l_str"}}, /*right_keys=*/{{"r_str"}}, exp_batches,
+                 parallel);
+}
+
+TEST(HashJoin, InnerJoinEmpty) {
+  for (int i = 0; i < 1; i++) {
+    bool parallel = i == 0 ? false : true;
+    CheckRightEmpty(JoinType::INNER, parallel);
+  }
+}
+
+TEST(HashJoin, RightOuterJoinEmpty) {
+  for (int i = 0; i < 2; i++) {
+    bool parallel = i == 0 ? false : true;
+    CheckRightEmpty(JoinType::RIGHT_OUTER, parallel);
+  }
+}
+
 }  // namespace acero
 }  // namespace arrow

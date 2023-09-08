@@ -909,6 +909,16 @@ class HashJoinNode : public ExecNode, public TracedNode {
     int side = (input == inputs_[0]) ? 0 : 1;
 
     if (batch_count_[side].SetTotal(total_batches)) {
+      // build batch rows are empty, we should stop and finish.
+      bool stop_join =
+          join_type_ == JoinType::INNER || join_type_ == JoinType::RIGHT_OUTER;
+      bool should_stop = side == 1 && build_accumulator_.row_count() == 0 && stop_join;
+      if (should_stop) {
+        RETURN_NOT_OK(OutputEmptyBatch());
+        plan_->should_early_stop_ = true;
+        return Status::OK();
+      }
+
       if (side == 0) {
         return OnProbeSideFinished(thread_index);
       } else {
@@ -917,7 +927,6 @@ class HashJoinNode : public ExecNode, public TracedNode {
     }
     return Status::OK();
   }
-
   Status Init() override {
     QueryContext* ctx = plan_->query_context();
     if (ctx->options().use_legacy_batching) {
@@ -1010,6 +1019,39 @@ class HashJoinNode : public ExecNode, public TracedNode {
       return output_->InputFinished(this, static_cast<int>(total_num_batches));
     }
     return Status::OK();
+  }
+
+  // Output one empty batch for inner or right outer join.
+  Status OutputEmptyBatch() {
+    ExecBatch result({}, 0);
+    int num_out_cols_left = schema_mgr_->proj_maps[0].num_cols(HashJoinProjection::OUTPUT);
+    int num_out_cols_right = schema_mgr_->proj_maps[1].num_cols(HashJoinProjection::OUTPUT);
+    result.values.resize(num_out_cols_left + num_out_cols_right);
+    for (int icol = 0; icol < num_out_cols_left; ++icol) {
+      int input_field_id =
+          schema_mgr_->proj_maps[0].map(HashJoinProjection::OUTPUT, HashJoinProjection::INPUT).get(icol);
+      const std::shared_ptr<DataType>& input_data_type =
+          schema_mgr_->proj_maps[0].data_type(HashJoinProjection::INPUT, input_field_id);
+      std::shared_ptr<Array> column;
+      std::unique_ptr<arrow::ArrayBuilder> builder;
+      RETURN_NOT_OK(MakeBuilder(default_memory_pool(), input_data_type, &builder));
+      RETURN_NOT_OK(builder->Finish(&column));
+      result.values[icol] = column;
+    }
+
+    for (int icol = 0; icol < num_out_cols_right; ++icol) {
+      int input_field_id =
+          schema_mgr_->proj_maps[1].map(HashJoinProjection::OUTPUT, HashJoinProjection::INPUT).get(icol);
+      const std::shared_ptr<DataType>& input_data_type =
+          schema_mgr_->proj_maps[1].data_type(HashJoinProjection::INPUT, input_field_id);
+      std::shared_ptr<Array> column;
+      std::unique_ptr<arrow::ArrayBuilder> builder;
+      RETURN_NOT_OK(MakeBuilder(default_memory_pool(), input_data_type, &builder));
+      RETURN_NOT_OK(builder->Finish(&column));
+      result.values[num_out_cols_left + icol] = column;
+    }
+    RETURN_NOT_OK(this->OutputBatchCallback(std::move(result)));
+    return this->FinishedCallback(1);
   }
 
  private:
