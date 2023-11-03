@@ -135,9 +135,8 @@ static auto kRunEndEncodeOptionsType = GetFunctionOptionsType<RunEndEncodeOption
 static auto kArraySortOptionsType = GetFunctionOptionsType<ArraySortOptions>(
     DataMember("order", &ArraySortOptions::order),
     DataMember("null_placement", &ArraySortOptions::null_placement));
-static auto kSortOptionsType = GetFunctionOptionsType<SortOptions>(
-    DataMember("sort_keys", &SortOptions::sort_keys),
-    DataMember("null_placement", &SortOptions::null_placement));
+static auto kSortOptionsType =
+    GetFunctionOptionsType<SortOptions>(DataMember("sort_keys", &SortOptions::sort_keys));
 static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOptions>(
     DataMember("pivot", &PartitionNthOptions::pivot),
     DataMember("null_placement", &PartitionNthOptions::null_placement));
@@ -180,14 +179,10 @@ ArraySortOptions::ArraySortOptions(SortOrder order, NullPlacement null_placement
       null_placement(null_placement) {}
 constexpr char ArraySortOptions::kTypeName[];
 
-SortOptions::SortOptions(std::vector<SortKey> sort_keys, NullPlacement null_placement)
-    : FunctionOptions(internal::kSortOptionsType),
-      sort_keys(std::move(sort_keys)),
-      null_placement(null_placement) {}
+SortOptions::SortOptions(std::vector<SortKey> sort_keys)
+    : FunctionOptions(internal::kSortOptionsType), sort_keys(std::move(sort_keys)) {}
 SortOptions::SortOptions(const Ordering& ordering)
-    : FunctionOptions(internal::kSortOptionsType),
-      sort_keys(ordering.sort_keys()),
-      null_placement(ordering.null_placement()) {}
+    : FunctionOptions(internal::kSortOptionsType), sort_keys(ordering.sort_keys()) {}
 constexpr char SortOptions::kTypeName[];
 
 PartitionNthOptions::PartitionNthOptions(int64_t pivot, NullPlacement null_placement)
@@ -299,7 +294,7 @@ Result<std::shared_ptr<Array>> SortIndices(const Array& values, SortOrder order,
 Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
                                            const ArraySortOptions& array_options,
                                            ExecContext* ctx) {
-  SortOptions options({SortKey("", array_options.order)}, array_options.null_placement);
+  SortOptions options({SortKey("", array_options.order, array_options.null_placement)});
   ARROW_ASSIGN_OR_RAISE(
       Datum result, CallFunction("sort_indices", {Datum(chunked_array)}, &options, ctx));
   return result.make_array();

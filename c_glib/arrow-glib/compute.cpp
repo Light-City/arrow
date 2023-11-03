@@ -2987,6 +2987,7 @@ typedef struct GArrowSortKeyPrivate_ {
 enum {
   PROP_SORT_KEY_TARGET = 1,
   PROP_SORT_KEY_ORDER,
+  PROP_SORT_KEY_NULL_PLACEMENT,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowSortKey,
@@ -3019,6 +3020,10 @@ garrow_sort_key_set_property(GObject *object,
     priv->sort_key.order =
       static_cast<arrow::compute::SortOrder>(g_value_get_enum(value));
     break;
+  case PROP_SORT_KEY_NULL_PLACEMENT:
+    priv->sort_key.null_placement =
+        static_cast<arrow::compute::NullPlacement>(g_value_get_enum(value));
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -3046,6 +3051,10 @@ garrow_sort_key_get_property(GObject *object,
     break;
   case PROP_SORT_KEY_ORDER:
     g_value_set_enum(value, static_cast<GArrowSortOrder>(priv->sort_key.order));
+    break;
+  case PROP_SORT_KEY_NULL_PLACEMENT:
+    g_value_set_enum(value,
+                     static_cast<GArrowNullPlacement>(priv->sort_key.null_placement));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -3103,6 +3112,15 @@ garrow_sort_key_class_init(GArrowSortKeyClass *klass)
                            static_cast<GParamFlags>(G_PARAM_READWRITE |
                                                     G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_SORT_KEY_ORDER, spec);
+
+  spec = g_param_spec_enum("null_placement",
+                           "NullPlacement",
+                           "How to sort nulls",
+                           GARROW_TYPE_NULL_PLACEMENT,
+                           0,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                    G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_SORT_KEY_NULL_PLACEMENT, spec);
 }
 
 /**
@@ -3117,6 +3135,7 @@ garrow_sort_key_class_init(GArrowSortKeyClass *klass)
 GArrowSortKey *
 garrow_sort_key_new(const gchar *target,
                     GArrowSortOrder order,
+                    GArrowNullPlacement null_placement,
                     GError **error)
 {
   auto arrow_reference_result = garrow_field_reference_resolve_raw(target);
@@ -3127,6 +3146,7 @@ garrow_sort_key_new(const gchar *target,
   }
   auto sort_key = g_object_new(GARROW_TYPE_SORT_KEY,
                                "order", order,
+                               "null_placement", null_placement,
                                NULL);
   auto priv = GARROW_SORT_KEY_GET_PRIVATE(sort_key);
   priv->sort_key.target = *arrow_reference_result;
@@ -6434,8 +6454,6 @@ garrow_sort_options_new_raw(
                                      NULL));
   auto arrow_new_options = garrow_sort_options_get_raw(options);
   arrow_new_options->sort_keys = arrow_options->sort_keys;
-  /* TODO: Use property when we add support for null_placement. */
-  arrow_new_options->null_placement = arrow_options->null_placement;
   return options;
 }
 

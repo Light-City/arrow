@@ -286,7 +286,7 @@ class RecordBatchSelecter : public TypeVisitor {
         k_(options.k),
         output_(output),
         sort_keys_(ResolveSortKeys(record_batch, options.sort_keys, &status_)),
-        comparator_(sort_keys_, NullPlacement::AtEnd) {}
+        comparator_(sort_keys_) {}
 
   Status Run() {
     RETURN_NOT_OK(status_);
@@ -312,7 +312,7 @@ class RecordBatchSelecter : public TypeVisitor {
         *status = maybe_array.status();
         return {};
       }
-      resolved.emplace_back(*std::move(maybe_array), key.order);
+      resolved.emplace_back(*std::move(maybe_array), key.order, key.null_placement);
     }
     return resolved;
   }
@@ -394,12 +394,13 @@ class TableSelecter : public TypeVisitor {
  private:
   struct ResolvedSortKey {
     ResolvedSortKey(const std::shared_ptr<ChunkedArray>& chunked_array,
-                    const SortOrder order)
+                    const SortOrder order, NullPlacement null_placement)
         : order(order),
           type(GetPhysicalType(chunked_array->type())),
           chunks(GetPhysicalChunks(*chunked_array, type)),
           null_count(chunked_array->null_count()),
-          resolver(GetArrayPointers(chunks)) {}
+          resolver(GetArrayPointers(chunks)),
+          null_placement(null_placement) {}
 
     using LocationType = int64_t;
 
@@ -415,6 +416,7 @@ class TableSelecter : public TypeVisitor {
     const ArrayVector chunks;
     const int64_t null_count;
     const ChunkedArrayResolver resolver;
+    NullPlacement null_placement;
   };
   using Comparator = MultipleKeyComparator<ResolvedSortKey>;
 
@@ -427,7 +429,7 @@ class TableSelecter : public TypeVisitor {
         k_(options.k),
         output_(output),
         sort_keys_(ResolveSortKeys(table, options.sort_keys, &status_)),
-        comparator_(sort_keys_, NullPlacement::AtEnd) {}
+        comparator_(sort_keys_) {}
 
   Status Run() {
     RETURN_NOT_OK(status_);
@@ -454,7 +456,7 @@ class TableSelecter : public TypeVisitor {
         *status = maybe_chunked_array.status();
         return {};
       }
-      resolved.emplace_back(*std::move(maybe_chunked_array), key.order);
+      resolved.emplace_back(*std::move(maybe_chunked_array), key.order, key.null_placement);
     }
     return resolved;
   }
