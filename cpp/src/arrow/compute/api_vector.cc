@@ -148,7 +148,6 @@ static auto kCumulativeOptionsType = GetFunctionOptionsType<CumulativeOptions>(
     DataMember("skip_nulls", &CumulativeOptions::skip_nulls));
 static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
     DataMember("sort_keys", &RankOptions::sort_keys),
-    DataMember("null_placement", &RankOptions::null_placement),
     DataMember("tiebreaker", &RankOptions::tiebreaker));
 static auto kPairwiseOptionsType = GetFunctionOptionsType<PairwiseOptions>(
     DataMember("periods", &PairwiseOptions::periods));
@@ -207,11 +206,10 @@ CumulativeOptions::CumulativeOptions(std::shared_ptr<Scalar> start, bool skip_nu
       skip_nulls(skip_nulls) {}
 constexpr char CumulativeOptions::kTypeName[];
 
-RankOptions::RankOptions(std::vector<SortKey> sort_keys, NullPlacement null_placement,
+RankOptions::RankOptions(std::vector<SortKey> sort_keys,
                          RankOptions::Tiebreaker tiebreaker)
     : FunctionOptions(internal::kRankOptionsType),
       sort_keys(std::move(sort_keys)),
-      null_placement(null_placement),
       tiebreaker(tiebreaker) {}
 constexpr char RankOptions::kTypeName[];
 

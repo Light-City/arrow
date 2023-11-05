@@ -232,8 +232,7 @@ class ArrayCompareSorter<DictionaryType> {
     // * We're going to re-emit nulls in the output, so we can just always consider
     //   them "at the end".  Note that choosing AtStart would merely shift other
     //   ranks by 1 if there are any nulls...
-    RankOptions rank_options(SortOrder::Ascending, NullPlacement::AtEnd,
-                             RankOptions::Dense);
+    RankOptions rank_options(SortOrder::Ascending, RankOptions::Dense);
 
     // XXX Should this support Type::NA?
     auto data = array->data();

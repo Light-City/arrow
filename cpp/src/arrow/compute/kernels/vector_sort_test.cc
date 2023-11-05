@@ -2282,8 +2282,8 @@ class TestRank : public ::testing::Test {
   static void AssertRank(const DatumVector& datums, SortOrder order,
                          NullPlacement null_placement, RankOptions::Tiebreaker tiebreaker,
                          const std::shared_ptr<Array>& expected) {
-    const std::vector<SortKey> sort_keys{SortKey("foo", order)};
-    RankOptions options(sort_keys, null_placement, tiebreaker);
+    const std::vector<SortKey> sort_keys{SortKey("foo", order, null_placement)};
+    RankOptions options(sort_keys, tiebreaker);
     ARROW_SCOPED_TRACE("options = ", options.ToString());
     for (const auto& datum : datums) {
       ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("rank", {datum}, &options));

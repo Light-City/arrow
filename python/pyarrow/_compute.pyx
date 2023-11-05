@@ -2059,12 +2059,11 @@ class ArraySortOptions(_ArraySortOptions):
 cdef class _SortOptions(FunctionOptions):
     def _set_options(self, sort_keys, null_placement):
         cdef vector[CSortKey] c_sort_keys
-        for name, order in sort_keys:
+        for name, order, null_placement in sort_keys:
             c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order), unwrap_null_placement(null_placement))
             )
-        self.wrapped.reset(new CSortOptions(
-            c_sort_keys, unwrap_null_placement(null_placement)))
+        self.wrapped.reset(new CSortOptions(c_sort_keys))
 
 
 class SortOptions(_SortOptions):
@@ -2078,22 +2077,18 @@ class SortOptions(_SortOptions):
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
         The field name can be a string column name or expression.
-    null_placement : str, default "at_end"
-        Where nulls in input should be sorted, only applying to
-        columns/fields mentioned in `sort_keys`.
-        Accepted values are "at_start", "at_end".
     """
 
-    def __init__(self, sort_keys=(), *, null_placement="at_end"):
-        self._set_options(sort_keys, null_placement)
+    def __init__(self, sort_keys=(), *):
+        self._set_options(sort_keys)
 
 
 cdef class _SelectKOptions(FunctionOptions):
     def _set_options(self, k, sort_keys):
         cdef vector[CSortKey] c_sort_keys
-        for name, order in sort_keys:
+        for name, order, null_placement in sort_keys:
             c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order), unwrap_null_placement(null_placement))
             )
         self.wrapped.reset(new CSelectKOptions(k, c_sort_keys))
 
@@ -2281,22 +2276,20 @@ cdef class _RankOptions(FunctionOptions):
         "dense": CRankOptionsTiebreaker_Dense,
     }
 
-    def _set_options(self, sort_keys, null_placement, tiebreaker):
+    def _set_options(self, sort_keys, tiebreaker):
         cdef vector[CSortKey] c_sort_keys
         if isinstance(sort_keys, str):
             c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(""), unwrap_sort_order(sort_keys))
+                CSortKey(_ensure_field_ref(""), CSortOrder_Ascending, CNullPlacement_AtEnd)
             )
         else:
             for name, order in sort_keys:
                 c_sort_keys.push_back(
-                    CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
+                    CSortKey(_ensure_field_ref(name), unwrap_sort_order(order), unwrap_null_placement(null_placement))
                 )
         try:
             self.wrapped.reset(
-                new CRankOptions(c_sort_keys,
-                                 unwrap_null_placement(null_placement),
-                                 self._tiebreaker_map[tiebreaker])
+                new CRankOptions(c_sort_keys, self._tiebreaker_map[tiebreaker])
             )
         except KeyError:
             _raise_invalid_function_option(tiebreaker, "tiebreaker")
@@ -2315,9 +2308,6 @@ class RankOptions(_RankOptions):
         The field name can be a string column name or expression.
         Alternatively, one can simply pass "ascending" or "descending" as a string
         if the input is array-like.
-    null_placement : str, default "at_end"
-        Where nulls in input should be sorted.
-        Accepted values are "at_start", "at_end".
     tiebreaker : str, default "first"
         Configure how ties between equal values are handled.
         Accepted values are:
@@ -2331,8 +2321,8 @@ class RankOptions(_RankOptions):
                    number of distinct values in the input.
     """
 
-    def __init__(self, sort_keys="ascending", *, null_placement="at_end", tiebreaker="first"):
-        self._set_options(sort_keys, null_placement, tiebreaker)
+    def __init__(self, sort_keys="ascending", *, tiebreaker="first"):
+        self._set_options(sort_keys, tiebreaker)
 
 
 cdef class Expression(_Weakrefable):
